@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEON CASINO | V4 Ultimate</title>
+    <style>
+        /* --- GLOBAL & THEME --- */
+        :root {
+            --bg: #0b0b0f;
+            --header-bg: #141419;
+            --primary: #ff0055;  
+            --secondary: #00ff88; 
+            --accent: #00ccff;    
+            --gold: #ffcc00;
+            --danger: #ff3333;
+            --text: #ffffff;
+            --tnt-orange: #ff5500;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* --- FX LAYERS --- */
+        #fx-canvas {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 999;
+        }
+
+        .float-money {
+            position: fixed;
+            color: var(--secondary);
+            font-weight: 900;
+            font-size: 1.5rem;
+            text-shadow: 0 0 5px black;
+            pointer-events: none;
+            z-index: 1000;
+            animation: fadeOut 1s forwards;
+            transition: transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        @keyframes fadeOut {
+            0% { opacity: 1; transform: scale(1); }
+            80% { opacity: 1; }
+            100% { opacity: 0; transform: scale(0.5); }
+        }
+
+        /* --- HEADER --- */
+        header {
+            height: 60px;
+            padding: 0 30px;
+            background: var(--header-bg);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #333;
+            flex-shrink: 0;
+            z-index: 100;
+        }
+
+        .brand {
+            font-size: 1.5rem;
+            font-weight: 900;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            background: linear-gradient(45deg, var(--accent), var(--primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            cursor: pointer;
+        }
+
+        .wallet-container {
+            background: #222;
+            padding: 8px 20px;
+            border-radius: 30px;
+            border: 1px solid var(--secondary);
+            color: var(--secondary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            transition: transform 0.1s;
+        }
+        .wallet-bump { animation: bump 0.2s; }
+        @keyframes bump { 0% { transform: scale(1); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
+
+        /* --- UI CONTROLS --- */
+        button { cursor: pointer; font-weight: bold; text-transform: uppercase; border: none; border-radius: 5px; transition: 0.2s; font-family: inherit; }
+        input[type="number"], select { background: #000; border: 1px solid #444; color: white; padding: 10px; width: 100px; text-align: center; border-radius: 5px; font-size: 1.1rem; font-family: inherit; }
+
+        .action-btn { padding: 12px 30px; font-size: 1rem; border-radius: 5px; background: var(--primary); color: white; box-shadow: 0 0 15px rgba(255, 0, 85, 0.4); width: 100%; }
+        .action-btn:hover { transform: scale(1.02); filter: brightness(1.1); }
+        .action-btn:active { transform: scale(0.98); }
+        .action-btn.green { background: var(--secondary); box-shadow: 0 0 15px rgba(0, 255, 136, 0.4); color: #000; }
+        .action-btn.orange { background: var(--tnt-orange); box-shadow: 0 0 15px rgba(255, 85, 0, 0.4); color: white; }
+        .action-btn.blue { background: var(--accent); box-shadow: 0 0 15px rgba(0, 200, 255, 0.4); color: #000; }
+        
+        .back-btn { background: rgba(255,255,255,0.1); color: white; padding: 8px 15px; border-radius: 4px; margin-right: 15px; }
+        .back-btn:hover { background: rgba(255,255,255,0.2); }
+
+        /* --- SCREEN MANAGER --- */
+        .main-content { flex-grow: 1; position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center; }
+        .screen { display: none; width: 100%; height: 100%; flex-direction: column; align-items: center; justify-content: center; animation: fadeIn 0.3s ease-out; padding: 20px; box-sizing: border-box; }
+        .screen.active { display: flex; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* --- LOBBY --- */
+        .lobby-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 30px; width: 100%; max-width: 1000px; padding: 40px; overflow-y: auto; }
+        .game-card { background: #1a1a20; height: 260px; border-radius: 15px; border: 1px solid #333; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s ease; position: relative; }
+        .game-card:hover { transform: translateY(-10px); border-color: var(--accent); box-shadow: 0 20px 40px rgba(0,0,0,0.6); z-index: 10; }
+        .card-emoji { font-size: 4rem; margin-bottom: 20px; }
+        .card-title { font-size: 1.3rem; font-weight: 800; text-transform: uppercase; color: #fff; }
+
+        /* --- GAME: TNT --- */
+        .tnt-layout { display: flex; gap: 40px; align-items: center; justify-content: center; height: 100%; width: 100%; max-width: 1100px; }
+        .tnt-sidebar { width: 300px; background: #1a1a20; padding: 30px; border-radius: 15px; border: 1px solid #333; display: flex; flex-direction: column; gap: 20px; }
+        .tnt-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; padding: 20px; background: #111; border-radius: 15px; border: 2px solid #333; box-shadow: 0 0 50px rgba(0,0,0,0.8); }
+        .tile { width: 85px; height: 85px; background: #2a2a35; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 3rem; border-bottom: 5px solid #1a1a20; }
+        .tile:hover { filter: brightness(1.2); transform: translateY(-2px); }
+        .tile:active { transform: translateY(2px); border-bottom-width: 0; }
+        .tile.revealed { background: #15151a; border: 2px solid #333; cursor: default; transform: none; }
+        .tile.gem { background: #112211; border-color: #00ff88; box-shadow: inset 0 0 20px rgba(0,255,136,0.2); }
+        .tile.boom { background: #330000; border-color: #ff3333; animation: shake 0.4s; }
+        @keyframes shake { 0%, 100% {transform: translateX(0);} 25%, 75% {transform: translateX(-5px);} 50% {transform: translateX(5px);} }
+
+        /* --- GAME: PLINKO --- */
+        .plinko-layout { display: flex; height: 100%; width: 100%; }
+        .plinko-sidebar { width: 300px; background: #1a1a20; padding: 30px; border-right: 1px solid #333; display: flex; flex-direction: column; justify-content: center; }
+        .canvas-container { flex-grow: 1; background: #000; position: relative; overflow: hidden; }
+        canvas { display: block; }
+
+        /* --- GAME: BLACKJACK --- */
+        .bj-layout { display: flex; flex-direction: column; justify-content: space-between; height: 100%; width: 100%; max-width: 900px; padding: 20px 0; }
+        .bj-table { flex-grow: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 40px; }
+        .hand-area { display: flex; flex-direction: column; align-items: center; min-height: 150px; }
+        .cards-row { display: flex; gap: 10px; perspective: 1000px; }
+        .bj-card { width: 80px; height: 110px; background: white; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: bold; position: relative; box-shadow: 2px 2px 10px rgba(0,0,0,0.5); transform: translateY(0); transition: transform 0.3s; color: black; }
+        .bj-card.red { color: #d00; }
+        .bj-card.hidden { background: repeating-linear-gradient(45deg, #222, #222 10px, #333 10px, #333 20px); color: transparent; border: 2px solid #555; }
+        .bj-score { color: #888; margin-bottom: 5px; font-weight: bold; font-size: 0.9rem; text-transform: uppercase; }
+        .bj-controls { display: flex; justify-content: center; gap: 15px; padding: 20px; background: rgba(0,0,0,0.5); border-radius: 20px; }
+
+        /* --- GAME: SLOTS --- */
+        .slots-center { display: flex; flex-direction: column; align-items: center; justify-content: center; transform: scale(1.5); }
+        .slot-frame { background: #222; padding: 20px; border-radius: 15px; border: 4px solid var(--gold); box-shadow: 0 0 60px rgba(255, 215, 0, 0.1); display: flex; gap: 15px; }
+        .reel { width: 100px; height: 140px; background: white; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 4rem; color: #333; border: 4px solid #555; overflow: hidden; }
+
+        /* --- CONTROL BAR --- */
+        .game-controls-bar { position: absolute; bottom: 0; left: 0; width: 100%; height: 80px; background: rgba(0,0,0,0.9); border-top: 1px solid #333; display: flex; justify-content: center; align-items: center; gap: 20px; z-index: 50; }
+        .stat-display { display: flex; flex-direction: column; align-items: center; font-size: 0.8rem; color: #888; }
+        .stat-val { font-size: 1.2rem; color: white; font-weight: bold; }
+
+    </style>
+</head>
+<body>
+
+    <canvas id="fx-canvas"></canvas>
+
+    <header>
+        <div style="display:flex; align-items:center;">
+            <button class="back-btn" id="home-btn" onclick="goHome()" style="display:none;">⌂ HOME</button>
+            <div class="brand">NEON CASINO</div>
+        </div>
+        <div class="wallet-container" id="wallet-ui">
+            <span>$</span>
+            <span id="global-balance">1000.00</span>
+        </div>
+    </header>
+
+    <div class="main-content">
+        
+        <div id="lobby" class="screen active">
+            <div class="lobby-grid">
+                <div class="game-card" onclick="loadGame('tnt')">
+                    <div class="card-emoji">🧨</div>
+                    <div class="card-title">TNT Mines</div>
+                    <div style="color:var(--tnt-orange); font-size:0.8rem; margin-top:5px;">POPULAR</div>
+                </div>
+                <div class="game-card" onclick="loadGame('plinko')">
+                    <div class="card-emoji">🟢</div>
+                    <div class="card-title">Plinko</div>
+                </div>
+                <div class="game-card" onclick="loadGame('blackjack')">
+                    <div class="card-emoji">🃏</div>
+                    <div class="card-title">Blackjack</div>
+                </div>
+                <div class="game-card" onclick="loadGame('slots')">
+                    <div class="card-emoji">🎰</div>
+                    <div class="card-title">Neon Slots</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tnt" class="screen">
+            <div class="tnt-layout">
+                <div class="tnt-sidebar">
+                    <h2 style="color:var(--tnt-orange); margin:0;">TNT MINES</h2>
+                    <p style="color:#666; font-size:0.9rem;">Find Diamonds. Don't Explode.</p>
+                    
+                    <div>
+                        <label style="color:#aaa; font-size:0.8rem;">Bet</label>
+                        <input type="number" id="tnt-bet" value="10" style="width:100%;">
+                    </div>
+                    <div>
+                        <label style="color:#aaa; font-size:0.8rem;">TNT Count</label>
+                        <select id="tnt-count" style="width:100%; padding:10px;">
+                            <option value="3" selected>3 TNT</option>
+                            <option value="5">5 TNT</option>
+                            <option value="10">10 TNT</option>
+                        </select>
+                    </div>
+
+                    <div style="background:#222; padding:10px; border-radius:5px; text-align:center;">
+                        <div style="font-size:0.8rem; color:#888;">Current Multiplier</div>
+                        <div id="tnt-mult" style="font-size:1.5rem; color:var(--gold); font-weight:bold;">1.00x</div>
+                    </div>
+
+                    <button id="tnt-btn-bet" class="action-btn orange" onclick="startTNT()">BET</button>
+                    <button id="tnt-btn-cashout" id="tnt-cashout-btn" class="action-btn green" style="display:none;" onclick="cashoutTNT()">CASHOUT</button>
+                </div>
+
+                <div class="tnt-grid" id="tnt-grid"></div>
+            </div>
+        </div>
+
+        <div id="plinko" class="screen" style="padding:0;">
+            <div class="plinko-layout">
+                <div class="plinko-sidebar">
+                    <h2 style="color:var(--secondary)">PLINKO</h2>
+                    <label style="color:#888;">Bet Amount</label>
+                    <input type="number" id="pl-bet" value="10" style="width:100%; margin-bottom: 20px;">
+                    <button id="pl-btn" class="action-btn green" onclick="dropPlinkoBall()" style="width:100%; padding: 20px;">DROP</button>
+                </div>
+                <div class="canvas-container" id="plinko-container">
+                    <canvas id="plinkoCanvas"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div id="blackjack" class="screen">
+            <div class="bj-layout">
+                <div class="bj-table">
+                    <div class="hand-area">
+                        <div class="bj-score">Dealer: <span id="bj-d-score">?</span></div>
+                        <div class="cards-row" id="bj-d-hand"></div>
+                    </div>
+                    <div class="hand-area">
+                        <div class="bj-score">You: <span id="bj-p-score">0</span></div>
+                        <div class="cards-row" id="bj-p-hand"></div>
+                    </div>
+                    <div id="bj-msg" style="height:20px; font-weight:bold; font-size:1.2rem;"></div>
+                </div>
+
+                <div class="bj-controls" id="bj-bet-phase">
+                    <input type="number" id="bj-bet" value="20">
+                    <button id="bj-deal-btn" class="action-btn blue" style="width:150px;" onclick="startBJ()">DEAL</button>
+                </div>
+
+                <div class="bj-controls" id="bj-action-phase" style="display:none;">
+                    <button class="action-btn green" style="width:100px;" onclick="hitBJ()">HIT</button>
+                    <button class="action-btn" style="width:100px; background:#444;" onclick="standBJ()">STAND</button>
+                    <button class="action-btn orange" style="width:120px;" onclick="doubleBJ()">DOUBLE</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="slots" class="screen">
+            <div class="slots-center">
+                <div class="slot-frame">
+                    <div class="reel"><div id="r1">🍒</div></div>
+                    <div class="reel"><div id="r2">🍒</div></div>
+                    <div class="reel"><div id="r3">🍒</div></div>
+                </div>
+                <div id="slot-msg" style="font-size:1.5rem; margin-top:20px; font-weight:bold; height:30px;"></div>
+            </div>
+            <div class="game-controls-bar">
+                <div class="stat-display">
+                    <span>BET</span>
+                    <input type="number" id="slot-bet" value="10" style="width:80px;">
+                </div>
+                <button id="slot-spin-btn" class="action-btn" style="width: 150px;" onclick="spinSlots()">SPIN</button>
+                <div class="stat-display">
+                    <span>WIN</span>
+                    <span class="stat-val" id="slot-win">$0.00</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        /* --- CORE SYSTEM & FX --- */
+        let balance = 1000.00;
+        const balEl = document.getElementById('global-balance');
+        const walletUI = document.getElementById('wallet-ui');
+        const fxCanvas = document.getElementById('fx-canvas');
+        const fxCtx = fxCanvas.getContext('2d');
+        let fxParticles = [];
+
+        // Resize FX Canvas
+        function resizeFx() { fxCanvas.width = window.innerWidth; fxCanvas.height = window.innerHeight; }
+        window.addEventListener('resize', resizeFx); resizeFx();
+
+        // Animation Loop for FX
+        function fxLoop() {
+            fxCtx.clearRect(0,0, fxCanvas.width, fxCanvas.height);
+            for(let i=0; i<fxParticles.length; i++) {
+                let p = fxParticles[i];
+                p.x += p.vx; p.y += p.vy; p.vy += 0.2; // gravity
+                p.life--;
+                fxCtx.fillStyle = p.color;
+                fxCtx.globalAlpha = p.life / 60;
+                fxCtx.beginPath(); fxCtx.arc(p.x, p.y, p.size, 0, Math.PI*2); fxCtx.fill();
+            }
+            fxParticles = fxParticles.filter(p => p.life > 0);
+            requestAnimationFrame(fxLoop);
+        }
+        requestAnimationFrame(fxLoop);
+
+        function triggerWinEffect(x, y, big = false) {
+            const count = big ? 100 : 30;
+            for(let i=0; i<count; i++) {
+                fxParticles.push({
+                    x: x, y: y,
+                    vx: (Math.random()-0.5) * (big?15:5),
+                    vy: (Math.random()-0.5) * (big?15:5),
+                    life: 60 + Math.random()*30,
+                    color: `hsl(${Math.random()*50 + 40}, 100%, 50%)`, // Gold/Yellow
+                    size: Math.random()*5 + 2
+                });
+            }
+        }
+
+        // MONEY FLY ANIMATION
+        function flyMoney(amount, startX, startY) {
+            const el = document.createElement('div');
+            el.className = 'float-money';
+            el.innerText = "+$" + amount.toFixed(2);
+            el.style.left = startX + 'px';
+            el.style.top = startY + 'px';
+            document.body.appendChild(el);
+
+            // Get Wallet Position
+            const rect = walletUI.getBoundingClientRect();
+            const targetX = rect.left + rect.width / 2;
+            const targetY = rect.top + rect.height / 2;
+
+            // Trigger Animation next frame
+            requestAnimationFrame(() => {
+                const deltaX = targetX - startX;
+                const deltaY = targetY - startY;
+                el.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(0.5)`;
+                el.style.opacity = '0';
+            });
+
+            // Cleanup and Update real balance on arrival
+            setTimeout(() => {
+                el.remove();
+                walletUI.classList.remove('wallet-bump');
+                void walletUI.offsetWidth; // trigger reflow
+                walletUI.classList.add('wallet-bump');
+                
+                balance += amount;
+                balEl.innerText = balance.toFixed(2);
+                balEl.style.color = '#00ff88';
+            }, 800);
+        }
+
+        function updateBalance(amount, sourceElem = null) {
+            if(amount > 0) {
+                // Determine start position
+                let x = window.innerWidth/2, y = window.innerHeight/2;
+                if(sourceElem) {
+                    const r = sourceElem.getBoundingClientRect();
+                    x = r.left + r.width/2;
+                    y = r.top + r.height/2;
+                }
+                triggerWinEffect(x, y, amount > 50);
+                flyMoney(amount, x, y);
+            } else {
+                balance += amount;
+                balEl.innerText = balance.toFixed(2);
+            }
+        }
+
+        /* --- NAVIGATION --- */
+        function loadGame(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            document.getElementById('home-btn').style.display = 'block';
+            
+            if(id === 'plinko') initPlinko(); else stopPlinko();
+            if(id === 'tnt') initTNT();
+        }
+
+        function goHome() {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById('lobby').classList.add('active');
+            document.getElementById('home-btn').style.display = 'none';
+            stopPlinko();
+        }
+
+        /* --- GAME 1: TNT MINES --- */
+        let tntGrid=[], tntActive=false, tntBet=0, tntMines=3, tntRev=0, tntMult=1.0;
+        function initTNT() {
+            const g = document.getElementById('tnt-grid');
+            g.innerHTML = '';
+            for(let i=0; i<25; i++){
+                let d = document.createElement('div');
+                d.className='tile'; d.id=`tnt-${i}`; d.innerHTML='📦';
+                d.onclick=()=>clickTNT(i); g.appendChild(d);
+            }
+            updateTNTUI();
+        }
+        function startTNT() {
+            const betVal = parseFloat(document.getElementById('tnt-bet').value);
+            if(balance < betVal) return;
+            updateBalance(-betVal);
+            
+            tntBet = betVal; tntMines = parseInt(document.getElementById('tnt-count').value);
+            tntActive = true; tntRev=0; tntMult=1.0; tntGrid=Array(25).fill(0);
+            
+            let p=0;
+            while(p<tntMines){ let r=Math.floor(Math.random()*25); if(tntGrid[r]===0){tntGrid[r]=1; p++;}}
+            
+            initTNT();
+        }
+        function clickTNT(i) {
+            if(!tntActive) return;
+            const el = document.getElementById(`tnt-${i}`);
+            if(el.classList.contains('revealed')) return;
+            el.classList.add('revealed');
+            
+            if(tntGrid[i] === 1) { // BOOM
+                el.innerHTML='💥'; el.classList.add('boom');
+                tntActive=false; revealTNT();
+            } else {
+                el.innerHTML='💎'; el.classList.add('gem');
+                tntRev++;
+                // Calc Mult
+                let safe = 25 - tntMines;
+                let step = ((25-(tntRev-1)) / (safe-(tntRev-1))) * 0.99;
+                tntMult *= step;
+                updateTNTUI();
+                if(tntRev === safe) cashoutTNT();
+            }
+        }
+        function cashoutTNT() {
+            if(!tntActive) return;
+            tntActive=false;
+            updateBalance(tntBet*tntMult, document.getElementById('tnt-btn-cashout'));
+            revealTNT();
+            updateTNTUI();
+        }
+        function revealTNT(){
+            tntGrid.forEach((v,i) => {
+                let el = document.getElementById(`tnt-${i}`);
+                if(!el.classList.contains('revealed')) {
+                    el.classList.add('revealed'); el.style.opacity=0.5;
+                    el.innerHTML = v===1 ? '🧨' : '💎';
+                }
+            });
+        }
+        function updateTNTUI() {
+            document.getElementById('tnt-mult').innerText = tntMult.toFixed(2)+'x';
+            document.getElementById('tnt-btn-bet').style.display = tntActive ? 'none' : 'block';
+            let cBtn = document.getElementById('tnt-btn-cashout');
+            cBtn.style.display = tntActive ? 'block' : 'none';
+            cBtn.innerText = `CASHOUT $${(tntBet*tntMult).toFixed(2)}`;
+        }
+
+        /* --- GAME 2: PLINKO --- */
+        const cvs = document.getElementById('plinkoCanvas');
+        const ctx = cvs.getContext('2d');
+        let plActive=false, balls=[], pegs=[], buckets=[], W, H;
+        function initPlinko() { plActive=true; resizePl(); window.addEventListener('resize', resizePl); reqAF(); }
+        function stopPlinko() { plActive=false; window.removeEventListener('resize', resizePl); }
+        function resizePl() {
+            const box = document.getElementById('plinko-container');
+            W = box.clientWidth; H = box.clientHeight;
+            cvs.width = W; cvs.height = H;
+            // Pegs
+            pegs=[]; const rows=14, spacing=Math.min(W/(rows+2), 50);
+            for(let r=0; r<rows; r++) {
+                for(let c=0; c<=r; c++) pegs.push({x: W/2 - (r*spacing/2) + c*spacing, y: 50+r*spacing*0.8});
+            }
+            // Buckets
+            buckets=[]; const bw=spacing, tw=bw*(rows+1), sx=W/2 - tw/2;
+            for(let i=0; i<=rows; i++) {
+                let d = Math.abs(i-rows/2), val = d>5?100:(d>3?10:(d>1?2:0.5));
+                if(d<=1) val=0.2;
+                buckets.push({x: sx+i*bw, w: bw, val: val});
+            }
+        }
+        function dropPlinkoBall() {
+            const bet = parseFloat(document.getElementById('pl-bet').value);
+            if(balance < bet) return;
+            updateBalance(-bet);
+            balls.push({x:W/2+(Math.random()*4-2), y:10, vx:0, vy:0, bet:bet, dead:false});
+        }
+        function reqAF() {
+            if(!plActive) return;
+            ctx.clearRect(0,0,W,H);
+            buckets.forEach(b=>{
+                ctx.fillStyle=b.val>=10?'#f05':(b.val<1?'#222':'#0f8');
+                ctx.fillRect(b.x, H-30, b.w-2, 30);
+                ctx.fillStyle='#fff'; ctx.font='10px Arial'; ctx.textAlign='center';
+                ctx.fillText(b.val+'x', b.x+b.w/2, H-12);
+            });
+            ctx.fillStyle='#fff'; pegs.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,3,0,6.28);ctx.fill()});
+            ctx.fillStyle='#fc0';
+            balls.forEach(b=>{
+                if(b.dead) return;
+                for(let i=0;i<3;i++){
+                    b.vy+=0.1; b.vx*=0.99; b.x+=b.vx; b.y+=b.vy;
+                    pegs.forEach(p=>{
+                        let dx=b.x-p.x, dy=b.y-p.y, d=Math.sqrt(dx*dx+dy*dy);
+                        if(d<8){
+                            let nx=dx/d, ny=dy/d; b.x+=nx*(8-d); b.y+=ny*(8-d);
+                            b.vx+=(Math.random()-0.5); b.vy*=-0.5;
+                        }
+                    });
+                }
+                if(b.y>H-30){
+                    b.dead=true; let m=0;
+                    buckets.forEach(bu=>{if(b.x>bu.x && b.x<bu.x+bu.w) m=bu.val;});
+                    if(m>0) updateBalance(b.bet*m, document.getElementById('pl-btn')); // Fly from button area approx
+                }
+                ctx.beginPath(); ctx.arc(b.x,b.y,5,0,6.28); ctx.fill();
+            });
+            balls=balls.filter(b=>!b.dead);
+            requestAnimationFrame(reqAF);
+        }
+
+        /* --- GAME 3: BLACKJACK --- */
+        let bjDeck, pHand, dHand, bjBet, bjActive=false;
+        const SUITS=['♥','♦','♣','♠'], RANKS=['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+        function getDeck() {
+            let d=[];
+            for(let s of SUITS) for(let r of RANKS) d.push({s,r,v:(r=='A'?11:'JQK'.includes(r)?10:parseInt(r))});
+            return d.sort(()=>Math.random()-0.5);
+        }
+        function renderCard(c, el, hidden=false) {
+            let d=document.createElement('div');
+            d.className = `bj-card ${hidden?'hidden':(c.s=='♥'||c.s=='♦'?'red':'')}`;
+            if(!hidden) d.innerHTML = `<div>${c.r}</div><div style="font-size:1.5rem">${c.s}</div>`;
+            el.appendChild(d);
+            setTimeout(()=>d.style.transform='translateY(-5px)', 50); // pop effect
+        }
+        function score(h) {
+            let s=0, a=0; h.forEach(c=>{s+=c.v; if(c.r=='A')a++});
+            while(s>21 && a>0){s-=10; a--;} return s;
+        }
+        function startBJ() {
+            bjBet = parseFloat(document.getElementById('bj-bet').value);
+            if(balance < bjBet) return;
+            updateBalance(-bjBet);
+            bjDeck = getDeck();
+            pHand = [bjDeck.pop(), bjDeck.pop()];
+            dHand = [bjDeck.pop(), bjDeck.pop()];
+            bjActive=true;
+            document.getElementById('bj-bet-phase').style.display='none';
+            document.getElementById('bj-action-phase').style.display='flex';
+            document.getElementById('bj-msg').innerText = "";
+            renderBJ();
+            if(score(pHand)==21) endBJ();
+        }
+        function renderBJ(showD=false) {
+            const ph = document.getElementById('bj-p-hand'); ph.innerHTML='';
+            const dh = document.getElementById('bj-d-hand'); dh.innerHTML='';
+            pHand.forEach(c=>renderCard(c, ph));
+            dHand.forEach((c,i)=>renderCard(c, dh, !showD && i===0));
+            document.getElementById('bj-p-score').innerText = score(pHand);
+            document.getElementById('bj-d-score').innerText = showD ? score(dHand) : "?";
+        }
+        function hitBJ() { pHand.push(bjDeck.pop()); renderBJ(); if(score(pHand)>21) endBJ(); }
+        function standBJ() { endBJ(true); }
+        function doubleBJ() { 
+            if(balance < bjBet) return; 
+            updateBalance(-bjBet); bjBet*=2; 
+            pHand.push(bjDeck.pop()); renderBJ(); endBJ(true); 
+        }
+        function endBJ(dealerTurn=false) {
+            bjActive=false;
+            let ps = score(pHand);
+            if(dealerTurn && ps <= 21) {
+                while(score(dHand) < 17) dHand.push(bjDeck.pop());
+            }
+            renderBJ(true);
+            let ds = score(dHand);
+            let msg = document.getElementById('bj-msg');
+            let winAmt = 0;
+            
+            if(ps > 21) { msg.innerText="BUST"; msg.style.color="red"; }
+            else if(ds > 21 || ps > ds) { 
+                winAmt = bjBet*2; msg.innerText="YOU WIN!"; msg.style.color="#0f8"; 
+            }
+            else if(ps == ds) { winAmt=bjBet; msg.innerText="PUSH"; msg.style.color="#fff"; }
+            else { msg.innerText="DEALER WINS"; msg.style.color="red"; }
+
+            if(winAmt > 0) updateBalance(winAmt, document.getElementById('bj-p-hand'));
+            
+            document.getElementById('bj-action-phase').style.display='none';
+            setTimeout(()=>document.getElementById('bj-bet-phase').style.display='flex', 2000);
+        }
+
+        /* --- GAME 4: SLOTS --- */
+        function spinSlots() {
+            const bet = parseFloat(document.getElementById('slot-bet').value);
+            if(balance < bet) return;
+            updateBalance(-bet);
+            const r=[document.getElementById('r1'),document.getElementById('r2'),document.getElementById('r3')];
+            r.forEach(el=>{el.innerText='🌀'; el.parentElement.style.filter='blur(5px)'});
+            document.getElementById('slot-msg').innerText='';
+            
+            setTimeout(()=>{
+                const s = ['🍒','🍋','🍇','💎','7️⃣'];
+                const res = [0,0,0].map(()=>s[Math.floor(Math.random()*s.length)]);
+                r.forEach((el,i)=>{el.innerText=res[i]; el.parentElement.style.filter='none'});
+                
+                let win = 0;
+                if(res[0]==res[1] && res[1]==res[2]) win = bet*(res[0]=='7️⃣'?50:20);
+                else if(res[0]==res[1] || res[1]==res[2] || res[0]==res[2]) win = bet*2;
+                
+                document.getElementById('slot-win').innerText = `$${win.toFixed(2)}`;
+                if(win > 0) {
+                    updateBalance(win, document.getElementById('r2'));
+                    document.getElementById('slot-msg').innerText = "WINNER!";
+                    document.getElementById('slot-msg').style.color = "#0f8";
+                }
+            }, 600);
+        }
+
+    </script>
+</body>
+</html>
